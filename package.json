@@ -17,7 +17,7 @@
     "start": "electron .",
     "build": "electron-builder",
     "build:win": "electron-builder --win nsis",
-    "build:mac": "electron-builder --mac --x64 --arm64"
+    "build:mac": "electron-builder --mac --x64 --arm64 --publish never"
   },
   "dependencies": {
     "@vitejs/plugin-vue-jsx": "3.1.0",
