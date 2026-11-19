@@ -1,0 +1,5 @@
+node_modules/
+release/
+dist/.git_disabled/
+*.log
+.DS_Store

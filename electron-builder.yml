@@ -1,0 +1,28 @@
+appId: com.fishbook.app
+productName: fish-book
+asar: true
+asarUnpack:
+  - node_modules/font-list/**
+directories:
+  output: release
+files:
+  - dist/**
+  - dist-electron/**
+  - package.json
+  - "!dist/.git_disabled/**"
+  - "!dist/fish-opacity.exe"
+extraFiles:
+  - from: resources/books
+    to: books
+win:
+  target: nsis
+  icon: dist/favicon.ico
+  extraResources:
+    - from: resources/extraResources
+      to: extraResources
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+mac:
+  target: dmg
+  category: public.app-category.productivity
