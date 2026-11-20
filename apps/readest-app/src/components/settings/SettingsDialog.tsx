@@ -8,7 +8,7 @@ import { useCommandPalette } from '@/components/command-palette';
 import { RiFontSize, RiShareLine } from 'react-icons/ri';
 import { RiDashboardLine, RiTranslate } from 'react-icons/ri';
 import { VscSymbolColor } from 'react-icons/vsc';
-import { PiDotsThreeVerticalBold, PiRobot, PiSpeakerHigh } from 'react-icons/pi';
+import { PiBookOpen, PiDotsThreeVerticalBold, PiRobot, PiSpeakerHigh } from 'react-icons/pi';
 import { LiaHandPointerSolid } from 'react-icons/lia';
 import { IoAccessibilityOutline } from 'react-icons/io5';
 import {
@@ -33,12 +33,14 @@ import LangPanel from './LangPanel';
 import MiscPanel from './MiscPanel';
 import AIPanel from './AIPanel';
 import TTSPanel from './TTSPanel';
+import MiniReaderPanel from './MiniReaderPanel';
 
 export type SettingsPanelType =
   | 'Font'
   | 'Layout'
   | 'Theme'
   | 'Control'
+  | 'Mini'
   | 'TTS'
   | 'Language'
   | 'AI'
@@ -109,6 +111,12 @@ const SettingsDialog: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       tab: 'Control',
       icon: LiaHandPointerSolid,
       label: _('Behavior'),
+    },
+    {
+      tab: 'Mini',
+      icon: PiBookOpen,
+      label: _('Mini Reader'),
+      disabled: !appService?.hasWindow,
     },
     {
       tab: 'Language',
@@ -302,6 +310,7 @@ const SettingsDialog: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     Layout: null,
     Theme: null,
     Control: null,
+    Mini: null,
     TTS: null,
     Language: null,
     AI: null,
@@ -336,6 +345,7 @@ const SettingsDialog: React.FC<{ bookKey: string }> = ({ bookKey }) => {
         layout: 'Layout',
         theme: 'Theme',
         control: 'Control',
+        mini: 'Mini',
         tts: 'TTS',
         language: 'Language',
         ai: 'AI',
@@ -588,6 +598,9 @@ const SettingsDialog: React.FC<{ bookKey: string }> = ({ bookKey }) => {
             bookKey={bookKey}
             onRegisterReset={(fn) => registerResetFunction('Control', fn)}
           />
+        )}
+        {activePanel === 'Mini' && appService?.hasWindow && (
+          <MiniReaderPanel onRegisterReset={(fn) => registerResetFunction('Mini', fn)} />
         )}
         {activePanel === 'TTS' && (
           <TTSPanel bookKey={bookKey} onRegisterReset={(fn) => registerResetFunction('TTS', fn)} />

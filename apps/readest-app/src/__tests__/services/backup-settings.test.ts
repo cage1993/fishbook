@@ -252,6 +252,7 @@ describe('sanitizeSettingsForBackup - blacklist', () => {
     expect(BACKUP_SETTINGS_BLACKLIST).toContain('icloud.deviceId');
     expect(BACKUP_SETTINGS_BLACKLIST).toContain('icloud.lastSyncedAt');
     expect(BACKUP_SETTINGS_BLACKLIST).toContain('icloud.providerSelectedAt');
+    expect(BACKUP_SETTINGS_BLACKLIST).toContain('miniReader');
   });
 });
 

@@ -70,7 +70,10 @@ function mockRouter() {
 }
 
 function makeAppService(isMacOS = false) {
-  return { isMacOSApp: isMacOS } as Record<string, unknown>;
+  return {
+    isMacOSApp: isMacOS,
+    loadSettings: vi.fn().mockResolvedValue({}),
+  } as Record<string, unknown>;
 }
 
 beforeEach(() => {

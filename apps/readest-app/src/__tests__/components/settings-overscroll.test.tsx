@@ -11,7 +11,16 @@ vi.mock('@/context/EnvContext', () => ({ useEnv: () => ({ appService: env }) }))
 vi.mock('@/hooks/useTranslation', () => ({ useTranslation: () => (text: string) => text }));
 vi.mock('@/hooks/useResponsiveSize', () => ({ useResponsiveSize: (size: number) => size }));
 vi.mock('@/utils/rtl', () => ({ getDirFromUILanguage: () => 'ltr' }));
-vi.mock('@/services/environment', () => ({ getCommandPaletteShortcut: () => '' }));
+vi.mock('@/services/environment', () => ({
+  getCommandPaletteShortcut: () => '',
+  isTauriAppPlatform: () => false,
+  isMacPlatform: () => false,
+}));
+vi.mock('@/helpers/settings', () => ({ saveSysSettings: vi.fn() }));
+vi.mock('@/services/desktopReader', () => ({
+  applyMiniReaderWindowSettings: vi.fn(),
+  configureMiniReaderShortcuts: vi.fn(),
+}));
 vi.mock('@/components/command-palette', () => ({ useCommandPalette: () => ({ open: vi.fn() }) }));
 vi.mock('@/components/Dropdown', () => ({ default: () => null }));
 vi.mock('@/components/settings/DialogMenu', () => ({ default: () => null }));

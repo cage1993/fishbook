@@ -476,6 +476,24 @@ export interface HardwarePageTurnerSettings {
   };
 }
 
+export interface MiniReaderSettings {
+  enabled: boolean;
+  width: number;
+  height: number;
+  x?: number;
+  y?: number;
+  backgroundColor: string;
+  textColor: string;
+  backgroundOpacity: number;
+  showProgress: boolean;
+  resizable: boolean;
+  shortcuts: {
+    toggle: string;
+    previous: string;
+    next: string;
+  };
+}
+
 export interface SystemSettings {
   version: number;
   migrationVersion: number;
@@ -516,6 +534,8 @@ export interface SystemSettings {
   keepLogin: boolean;
   alwaysOnTop: boolean;
   openBookInNewWindow: boolean;
+  /** Desktop-only appearance and shortcuts. Excluded from account settings restore. */
+  miniReader?: MiniReaderSettings;
   autoCheckUpdates: boolean;
   updateChannel: 'stable' | 'nightly';
   screenWakeLock: boolean;

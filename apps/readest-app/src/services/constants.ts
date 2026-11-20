@@ -40,6 +40,7 @@ import { UserStorageQuota, UserDailyTranslationQuota, UserDailyTTSQuota } from '
 import { getDefaultMaxBlockSize, getDefaultMaxInlineSize } from '@/utils/config';
 import { stubTranslation as _ } from '@/utils/misc';
 import { DEFAULT_AI_SETTINGS } from './ai/constants';
+import { DEFAULT_MINI_READER_SETTINGS } from './miniReaderSettings';
 import {
   DEFAULT_HANDWRITING_COLOR,
   DEFAULT_HANDWRITING_WIDTH,
@@ -231,6 +232,7 @@ export const DEFAULT_SYSTEM_SETTINGS: Partial<SystemSettings> = {
   keepLogin: false,
   alwaysOnTop: false,
   openBookInNewWindow: true,
+  miniReader: DEFAULT_MINI_READER_SETTINGS,
   alwaysShowStatusBar: false,
   autoCheckUpdates: true,
   updateChannel: 'stable',

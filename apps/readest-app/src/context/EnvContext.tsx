@@ -9,6 +9,8 @@ import { initReplicaSync } from '@/services/sync/replicaSync';
 import { createSettingsCursorStore } from '@/services/sync/replicaCursorStore';
 import { startReplicaTransferIntegration } from '@/services/sync/replicaTransferIntegration';
 import { enableReplicaAutoPersist } from '@/services/sync/replicaPersist';
+import { useSettingsStore } from '@/store/settingsStore';
+import { configureMiniReaderShortcuts } from '@/services/desktopReader';
 
 interface EnvContextType {
   envConfig: EnvConfigType;
@@ -20,6 +22,7 @@ const EnvContext = createContext<EnvContextType | undefined>(undefined);
 export const EnvProvider = ({ children }: { children: ReactNode }) => {
   const [envConfig] = useState<EnvConfigType>(env);
   const [appService, setAppService] = useState<AppService | null>(null);
+  const miniReaderSettings = useSettingsStore((state) => state.settings.miniReader);
 
   React.useEffect(() => {
     bootstrapReplicaAdapters();
@@ -62,6 +65,13 @@ export const EnvProvider = ({ children }: { children: ReactNode }) => {
       return false;
     });
   }, [envConfig]);
+
+  React.useEffect(() => {
+    if (!appService?.isDesktopApp || !miniReaderSettings) return;
+    configureMiniReaderShortcuts(miniReaderSettings).catch((error) => {
+      console.warn('Failed to configure mini reader shortcuts:', error);
+    });
+  }, [appService, miniReaderSettings]);
 
   const value = useMemo(() => ({ envConfig, appService }), [envConfig, appService]);
   return <EnvContext.Provider value={value}>{children}</EnvContext.Provider>;

@@ -57,6 +57,8 @@ mod localsend;
 #[cfg(target_os = "macos")]
 mod macos;
 mod media_proxy;
+#[cfg(desktop)]
+mod mini_reader;
 mod mobi_parser;
 mod nightly_update;
 mod parser_common;
@@ -683,6 +685,8 @@ pub fn run() {
             set_webview_info,
             get_webview_version,
             #[cfg(desktop)]
+            mini_reader::configure_mini_reader_shortcuts,
+            #[cfg(desktop)]
             is_updater_disabled,
             allow_paths_in_scopes,
             cover_thumbnail::optimize_cover_thumbnails,
@@ -880,6 +884,7 @@ pub fn run() {
             #[cfg(desktop)]
             {
                 app.handle().plugin(tauri_plugin_cli::init())?;
+                mini_reader::init(app.handle())?;
             }
 
             // Check for e-ink device on Android before building the window

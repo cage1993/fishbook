@@ -8,6 +8,7 @@ import { hasFileSyncMirror, useMakeBookAvailable } from '@/hooks/useMakeBookAvai
 import { eventDispatcher } from '@/utils/event';
 import { navigateToReader, showReaderWindow } from '@/utils/nav';
 import { isAbsEbook, isAudiobook } from '@/utils/audiobook';
+import { openMiniReader } from '@/services/desktopReader';
 
 interface UseOpenBookOptions {
   setLoading: Dispatch<SetStateAction<boolean>>;
@@ -79,7 +80,9 @@ export const useOpenBook = ({ setLoading, handleBookDownload }: UseOpenBookOptio
       if (cfi) params.set('cfi', cfi);
       if (cfi && options?.highlightSearchResult) params.set('highlight', 'search');
       const queryParams = params.size ? params.toString() : undefined;
-      if (appService?.hasWindow && settings.openBookInNewWindow) {
+      if (appService?.hasWindow && settings.miniReader?.enabled) {
+        await openMiniReader(appService, book.hash, queryParams);
+      } else if (appService?.hasWindow && settings.openBookInNewWindow) {
         showReaderWindow(appService, [book.hash], queryParams);
       } else {
         setTimeout(() => {
@@ -88,7 +91,7 @@ export const useOpenBook = ({ setLoading, handleBookDownload }: UseOpenBookOptio
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [appService, makeBookAvailable, settings.openBookInNewWindow],
+    [appService, makeBookAvailable, settings.openBookInNewWindow, settings.miniReader?.enabled],
   );
 
   return { openBook, makeBookAvailable };

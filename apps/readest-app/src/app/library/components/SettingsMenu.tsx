@@ -1,6 +1,13 @@
 import clsx from 'clsx';
 import React, { useEffect, useState } from 'react';
-import { PiUserCircle, PiUserCircleCheck, PiGear, PiChartBar, PiCardsThree } from 'react-icons/pi';
+import {
+  PiUserCircle,
+  PiUserCircleCheck,
+  PiGear,
+  PiChartBar,
+  PiCardsThree,
+  PiBookOpen,
+} from 'react-icons/pi';
 import { PiSun, PiMoon } from 'react-icons/pi';
 import { TbSunMoon } from 'react-icons/tb';
 import { MdCloudSync, MdSync, MdSyncProblem, MdOutlineSensors } from 'react-icons/md';
@@ -54,7 +61,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
   const { user } = useAuth();
   const { userProfilePlan, quotas } = useQuotaStats(true);
   const { themeMode, setThemeMode } = useThemeStore();
-  const { settings, setSettingsDialogOpen } = useSettingsStore();
+  const { settings, setSettingsDialogOpen, setRequestedPanel } = useSettingsStore();
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(settings.alwaysOnTop);
   const [isOpenLastBooks, setIsOpenLastBooks] = useState(settings.openLastBooks);
   const [isAutoImportBooksOnOpen, setIsAutoImportBooksOnOpen] = useState(
@@ -146,6 +153,12 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
     saveSysSettings(envConfig, 'alwaysOnTop', newValue);
     setIsAlwaysOnTop(newValue);
     tauriHandleSetAlwaysOnTop(newValue);
+    setIsDropdownOpen?.(false);
+  };
+
+  const openMiniReaderSettings = () => {
+    setRequestedPanel('Mini');
+    setSettingsDialogOpen(true);
     setIsDropdownOpen?.(false);
   };
 
@@ -396,6 +409,13 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
       )}
       {canToggleFullScreen(appService) && (
         <MenuItem label={_('Fullscreen')} onClick={handleFullScreen} />
+      )}
+      {appService?.hasWindow && (
+        <MenuItem
+          label={_('Mini Reader Settings')}
+          Icon={PiBookOpen}
+          onClick={openMiniReaderSettings}
+        />
       )}
       {appService?.hasWindow && (
         <MenuItem label={_('Always on Top')} toggled={isAlwaysOnTop} onClick={toggleAlwaysOnTop} />

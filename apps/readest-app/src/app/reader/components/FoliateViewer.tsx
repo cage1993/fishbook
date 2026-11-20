@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { listen } from '@tauri-apps/api/event';
 import {
   convertBlobUrlToDataUrl,
   BookDoc,
@@ -11,6 +12,8 @@ import { BOOK_IDS_SEPARATOR } from '@/services/constants';
 import { BookConfig, PageInfo, ViewSettings } from '@/types/book';
 import { FoliateView, wrappedFoliateView } from '@/types/view';
 import { Insets } from '@/types/misc';
+import type { MiniReaderSettings } from '@/types/settings';
+import { getMiniReaderStyles } from '../utils/miniReader';
 import { useEnv } from '@/context/EnvContext';
 import { useThemeStore } from '@/store/themeStore';
 import { useReaderStore } from '@/store/readerStore';
@@ -189,7 +192,8 @@ const FoliateViewer: React.FC<{
   config: BookConfig;
   gridInsets: Insets;
   contentInsets: Insets;
-}> = ({ bookKey, bookDoc, config, gridInsets, contentInsets: insets }) => {
+  miniReaderSettings?: MiniReaderSettings;
+}> = ({ bookKey, bookDoc, config, gridInsets, contentInsets: insets, miniReaderSettings }) => {
   const _ = useTranslation();
   const searchParams = useSearchParams();
   const { appService, envConfig } = useEnv();
@@ -1102,7 +1106,11 @@ const FoliateViewer: React.FC<{
       };
       // The reader can close while view.open() is pending; its cleanup has run.
       if (unmountedRef.current) removeTransformListenersRef.current();
-      view.renderer.setStyles?.(getStyles(viewSettings, undefined, getLoadedFonts()));
+      view.renderer.setStyles?.(
+        miniReaderSettings
+          ? getMiniReaderStyles(viewSettings, miniReaderSettings, undefined, getLoadedFonts())
+          : getStyles(viewSettings, undefined, getLoadedFonts()),
+      );
       applyTranslationStyle(viewSettings);
 
       doubleClickDisabled.current = viewSettings.disableDoubleClick!;
@@ -1359,11 +1367,33 @@ const FoliateViewer: React.FC<{
   }, [appService?.isAndroidApp]);
 
   useEffect(() => {
+    if (!miniReaderSettings) return;
+    let cancelled = false;
+    const unlisten = listen<MiniReaderSettings>('mini-reader-appearance', ({ payload }) => {
+      if (cancelled) return;
+      const view = viewRef.current;
+      const viewSettings = getViewSettings(bookKey);
+      if (!view || !viewSettings) return;
+      view.renderer.setStyles?.(
+        getMiniReaderStyles(viewSettings, payload, undefined, getLoadedFonts()),
+      );
+    });
+    return () => {
+      cancelled = true;
+      void unlisten.then((unlisten) => unlisten());
+    };
+  }, [bookKey, miniReaderSettings !== undefined, getViewSettings, getLoadedFonts]);
+
+  useEffect(() => {
     if (viewRef.current && viewRef.current.renderer) {
       const renderer = viewRef.current.renderer;
       const viewSettings = getViewSettings(bookKey)!;
       const pageSettings = getPageViewSettings(viewSettings);
-      viewRef.current.renderer.setStyles?.(getStyles(viewSettings, undefined, getLoadedFonts()));
+      viewRef.current.renderer.setStyles?.(
+        miniReaderSettings
+          ? getMiniReaderStyles(viewSettings, miniReaderSettings, undefined, getLoadedFonts())
+          : getStyles(viewSettings, undefined, getLoadedFonts()),
+      );
       const docs = viewRef.current.renderer.getContents();
       docs.forEach(({ doc }) => {
         if (bookDoc.rendition?.layout === 'pre-paginated') {
@@ -1392,6 +1422,10 @@ const FoliateViewer: React.FC<{
     viewSettings?.contrast,
     viewSettings?.hideScrollbar,
     viewSettings?.isEink,
+    miniReaderSettings?.showProgress,
+    miniReaderSettings?.backgroundColor,
+    miniReaderSettings?.backgroundOpacity,
+    miniReaderSettings?.textColor,
   ]);
 
   // The annotation overlay lives outside the content iframe, so its blend mode
@@ -1463,12 +1497,16 @@ const FoliateViewer: React.FC<{
 
   useEffect(() => {
     if (!viewSettings) return;
-    applyBackgroundTexture(envConfig, viewSettings);
+    applyBackgroundTexture(
+      envConfig,
+      miniReaderSettings ? { ...viewSettings, backgroundTextureId: 'none' } : viewSettings,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     viewSettings?.backgroundTextureId,
     viewSettings?.backgroundOpacity,
     viewSettings?.backgroundSize,
+    miniReaderSettings,
     applyBackgroundTexture,
   ]);
 

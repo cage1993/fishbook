@@ -39,6 +39,7 @@ const makeAppService = (os: 'macos' | 'windows' | 'linux'): AppService =>
     isWindowsApp: os === 'windows',
     isLinuxApp: os === 'linux',
     osPlatform: os,
+    loadSettings: vi.fn().mockResolvedValue({}),
   }) as unknown as AppService;
 
 // Regression (#3682): reader/extra windows opened via nav.ts must also be

@@ -40,9 +40,16 @@ import HintInfo from './HintInfo';
 import ReadingRuler from './ReadingRuler';
 import DoubleBorder from './DoubleBorder';
 import ReadingStatsTracker from './ReadingStatsTracker';
+import { applyMiniReaderLayout } from '../utils/miniReader';
+import {
+  normalizeMiniReaderSettings,
+  getMiniReaderBackground,
+} from '@/services/miniReaderSettings';
+import MiniReaderProgress from './MiniReaderProgress';
 
 interface BooksGridProps {
   bookKeys: string[];
+  miniReader?: boolean;
   onCloseBook: (bookKey: string) => void;
   onGoToLibrary: () => void;
 }
@@ -80,6 +87,7 @@ interface BooksGridProps {
 interface BookCellProps {
   bookKey: string;
   index: number;
+  miniReader: boolean;
   gridInsets: Insets;
   // The cell's insets for the toolbar chrome that shows with the status bar:
   // on iPhone Duo those recorded with the status bar shown, elsewhere the live
@@ -103,6 +111,7 @@ interface BookCellProps {
 const BookCellInner: React.FC<BookCellProps> = ({
   bookKey,
   index,
+  miniReader,
   gridInsets: cellInsets,
   chromeInsets: chromeCellInsets,
   spansWidth,
@@ -136,7 +145,19 @@ const BookCellInner: React.FC<BookCellProps> = ({
   // they show.
   const columnCount = useReaderProgressStore(() => getView(bookKey)?.renderer?.columnCount ?? 1);
   const windowWidth = useReaderProgressStore(() => window.innerWidth);
-  const viewSettings = viewState?.viewSettings ?? null;
+  const savedViewSettings = viewState?.viewSettings ?? null;
+  const savedMiniSettings = useSettingsStore((state) => state.settings.miniReader);
+  const miniSettings = useMemo(
+    () => normalizeMiniReaderSettings(savedMiniSettings),
+    [savedMiniSettings],
+  );
+  const viewSettings = useMemo(
+    () =>
+      savedViewSettings && miniReader
+        ? applyMiniReaderLayout(savedViewSettings, miniSettings)
+        : savedViewSettings,
+    [savedViewSettings, miniReader, miniSettings],
+  );
 
   // On iPhone Duo a two-column spread is centred on the display (spine on the
   // fold) by making the cell's horizontal insets symmetric; everything in the
@@ -217,17 +238,19 @@ const BookCellInner: React.FC<BookCellProps> = ({
         appServiceHasRoundedWindow && 'rounded-window',
       )}
     >
-      <HeaderBar
-        bookKey={bookKey}
-        gridInsets={chromeGridInsets}
-        screenInsets={screenInsets}
-        bookTitle={book.title}
-        isTopLeft={index === 0}
-        isHoveredAnim={isHoveredAnim}
-        onCloseBook={onCloseBook}
-        onGoToLibrary={onGoToLibrary}
-        onDropdownOpenChange={onDropdownOpenChange}
-      />
+      {!miniReader && (
+        <HeaderBar
+          bookKey={bookKey}
+          gridInsets={chromeGridInsets}
+          screenInsets={screenInsets}
+          bookTitle={book.title}
+          isTopLeft={index === 0}
+          isHoveredAnim={isHoveredAnim}
+          onCloseBook={onCloseBook}
+          onGoToLibrary={onGoToLibrary}
+          onDropdownOpenChange={onDropdownOpenChange}
+        />
+      )}
       {/*
         bg-base-100: while the pull-down bookmark gesture translates this
         wrapper, the transform makes it a stacking context, which isolates the
@@ -236,7 +259,10 @@ const BookCellInner: React.FC<BookCellProps> = ({
         An opaque background inside the wrapper keeps the blend backdrop with
         the transformed group, so the drag is luminance-invariant.
       */}
-      <div ref={slideRef} className='bg-base-100 absolute inset-0'>
+      <div
+        ref={slideRef}
+        className={clsx('absolute inset-0', miniReader ? 'bg-transparent' : 'bg-base-100')}
+      >
         <FoliateViewer
           key={viewerKey}
           bookKey={bookKey}
@@ -244,6 +270,7 @@ const BookCellInner: React.FC<BookCellProps> = ({
           config={config}
           gridInsets={gridInsets}
           contentInsets={contentInsets}
+          miniReaderSettings={miniReader ? miniSettings : undefined}
         />
         {viewSettings.vertical && viewSettings.scrolled && (
           <>
@@ -327,6 +354,13 @@ const BookCellInner: React.FC<BookCellProps> = ({
           />
         )}
       </div>
+      {miniReader && miniSettings.showProgress && (
+        <MiniReaderProgress
+          bookKey={bookKey}
+          textColor={miniSettings.textColor}
+          reserveResizeHandle={miniSettings.backgroundOpacity === 0 && miniSettings.resizable}
+        />
+      )}
       {/* After the page chrome so it can't paint over ink near the edges. */}
       <HandwritingOverlay bookKey={bookKey} gridInsets={gridInsets} />
       <BookmarkPullDown bookKey={bookKey} ribbonHidden={!!hoveredBookKey} slideRef={slideRef} />
@@ -340,12 +374,14 @@ const BookCellInner: React.FC<BookCellProps> = ({
           The selection toolbar no longer rides on this order — it has its own
           z-[43] band, above the footnote popup's z-[42] (#6145). */}
       <Annotator bookKey={bookKey} contentInsets={contentInsets} gridInsets={gridInsets} />
-      <FooterBar
-        bookKey={bookKey}
-        bookFormat={book.format}
-        isHoveredAnim={false}
-        gridInsets={chromeGridInsets}
-      />
+      {!miniReader && (
+        <FooterBar
+          bookKey={bookKey}
+          bookFormat={book.format}
+          isHoveredAnim={false}
+          gridInsets={chromeGridInsets}
+        />
+      )}
       <ReadingStatsTracker bookKey={bookKey} />
     </div>
   );
@@ -371,7 +407,12 @@ const cellSpansWidth = (index: number, count: number, aspectRatio: number) => {
   return left && right;
 };
 
-const BooksGrid: React.FC<BooksGridProps> = ({ bookKeys, onCloseBook, onGoToLibrary }) => {
+const BooksGrid: React.FC<BooksGridProps> = ({
+  bookKeys,
+  miniReader = false,
+  onCloseBook,
+  onGoToLibrary,
+}) => {
   const _ = useTranslation();
   const { appService } = useEnv();
   // Per-field selectors — see store/readerProgressStore.ts header. The grid
@@ -391,6 +432,7 @@ const BooksGrid: React.FC<BooksGridProps> = ({ bookKeys, onCloseBook, onGoToLibr
     screenCornerRadius,
   } = useThemeStore();
   const alwaysShowStatusBar = useSettingsStore((s) => s.settings.alwaysShowStatusBar);
+  const miniSettings = useSettingsStore((state) => state.settings.miniReader);
   const aspectRatio = window.innerWidth / window.innerHeight;
   const gridTemplate = getGridTemplate(bookKeys.length, aspectRatio);
 
@@ -495,8 +537,13 @@ const BooksGrid: React.FC<BooksGridProps> = ({ bookKeys, onCloseBook, onGoToLibr
 
   return (
     <div
-      className={clsx('books-grid bg-base-100 relative grid h-full grow')}
-      style={gridStyle}
+      className={clsx('books-grid relative grid h-full grow', !miniReader && 'bg-base-100')}
+      style={{
+        ...gridStyle,
+        ...(miniReader
+          ? { backgroundColor: getMiniReaderBackground(normalizeMiniReaderSettings(miniSettings)) }
+          : {}),
+      }}
       role='main'
       aria-label={_('Books Content')}
     >
@@ -505,6 +552,7 @@ const BooksGrid: React.FC<BooksGridProps> = ({ bookKeys, onCloseBook, onGoToLibr
           key={bookKey}
           bookKey={bookKey}
           index={index}
+          miniReader={miniReader}
           gridInsets={perBookGridInsets[index]!}
           chromeInsets={perBookChromeInsets[index]!}
           spansWidth={cellSpansWidth(index, bookKeys.length, aspectRatio)}

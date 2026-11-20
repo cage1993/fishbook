@@ -6,6 +6,7 @@ import { BOOK_IDS_SEPARATOR } from '@/services/constants';
 import { AppService } from '@/types/system';
 import { windowNeedsClientOutline } from '@/utils/window';
 import { transitionAway } from '@/utils/viewTransition';
+import { openMiniReader } from '@/services/desktopReader';
 
 // Labels handed out whose windows are not created yet, so two overlapping
 // launches that read the same window list do not pick the same label.
@@ -56,11 +57,15 @@ const createReaderWindow = async (appService: AppService, url: string) => {
   });
 };
 
-export const showReaderWindow = (
+export const showReaderWindow = async (
   appService: AppService,
   bookIds: string[],
   queryParams?: string,
 ) => {
+  const settings = await appService.loadSettings();
+  if (settings.miniReader?.enabled && bookIds.length === 1) {
+    return openMiniReader(appService, bookIds[0]!, queryParams);
+  }
   const ids = bookIds.join(BOOK_IDS_SEPARATOR);
   const params = new URLSearchParams(queryParams || '');
   params.set('ids', ids);

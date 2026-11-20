@@ -137,6 +137,7 @@ import { useReplicaPull } from '@/hooks/useReplicaPull';
 import { useCustomFonts } from '@/hooks/useCustomFonts';
 import DropIndicator from '@/components/DropIndicator';
 import SettingsDialog from '@/components/settings/SettingsDialog';
+import { openMiniReader } from '@/services/desktopReader';
 import ModalPortal from '@/components/ModalPortal';
 import TransferQueuePanel from './components/TransferQueuePanel';
 
@@ -743,7 +744,11 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           });
         }
         if (readerIds.length > 0) {
-          navigateToReader(router, readerIds);
+          if (appService?.hasWindow && settings.miniReader?.enabled && readerIds.length === 1) {
+            void openMiniReader(appService, readerIds[0]!);
+          } else {
+            navigateToReader(router, readerIds);
+          }
         }
       }
     }

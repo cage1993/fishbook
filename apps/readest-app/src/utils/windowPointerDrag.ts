@@ -106,7 +106,11 @@ export const startPointerWindowMove = async (startEvent: MouseEvent) => {
   });
 };
 
-export const startPointerWindowResize = async (startEvent: MouseEvent, edge: ResizeEdge) => {
+export const startPointerWindowResize = async (
+  startEvent: MouseEvent,
+  edge: ResizeEdge,
+  minSize: { width: number; height: number } = MIN_WINDOW_SIZE,
+) => {
   const released = watchRelease();
   const win = getCurrentWindow();
   if (await win.isMaximized()) {
@@ -120,7 +124,7 @@ export const startPointerWindowResize = async (startEvent: MouseEvent, edge: Res
   ]);
   if (released()) return;
   const start: Frame = { x: position.x, y: position.y, width: size.width, height: size.height };
-  const min = { width: MIN_WINDOW_SIZE.width * scale, height: MIN_WINDOW_SIZE.height * scale };
+  const min = { width: minSize.width * scale, height: minSize.height * scale };
   trackPointer(startEvent, ({ dx, dy }) => {
     const next = computeResizedFrame(edge, start, { dx: dx * scale, dy: dy * scale }, min);
     if (next.x !== start.x || next.y !== start.y) {

@@ -5,6 +5,8 @@ import { renderHook } from '@testing-library/react';
 import type { Book } from '@/types/book';
 import type { AppService } from '@/types/system';
 import type { EnvConfigType } from '@/services/environment';
+import type { SystemSettings } from '@/types/settings';
+import { useSettingsStore } from '@/store/settingsStore';
 
 /**
  * Issue #5265 (the residue of #5084): "Delete locally" must never cost the user
@@ -27,6 +29,9 @@ const routing = vi.hoisted(() => ({
 const isBookAvailable = vi.hoisted(() => vi.fn(async () => false));
 const navigateToReader = vi.hoisted(() => vi.fn());
 const routerPush = vi.hoisted(() => vi.fn());
+const openMiniReader = vi.hoisted(() => vi.fn());
+
+vi.mock('@/services/desktopReader', () => ({ openMiniReader }));
 
 vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (text: string) => text,
@@ -73,8 +78,9 @@ const makeBook = (over: Partial<Book> = {}): Book => ({
 
 const setup = (downloadOk = true) => {
   const handleBookDownload = vi.fn(async () => downloadOk);
-  const { result } = renderHook(() => useOpenBook({ setLoading: vi.fn(), handleBookDownload }));
-  return { result, handleBookDownload };
+  const setLoading = vi.fn();
+  const { result, rerender } = renderHook(() => useOpenBook({ setLoading, handleBookDownload }));
+  return { result, rerender, handleBookDownload };
 };
 
 /** `openBook` hands the reader navigation to a setTimeout(0); let it land. */
@@ -91,6 +97,10 @@ beforeEach(() => {
   routing.backends = [];
   isBookAvailable.mockResolvedValue(false);
   deleteIntents = [];
+  appService.hasWindow = true;
+  useSettingsStore.setState({
+    settings: { openBookInNewWindow: false, miniReader: { enabled: false } } as SystemSettings,
+  });
 });
 
 describe('useOpenBook — a missing local file must not delete the cloud copy (#5265)', () => {
@@ -133,6 +143,57 @@ describe('useOpenBook — a missing local file must not delete the cloud copy (#
 
     expect(deleteIntents).toEqual([]);
     expect(navigateToReader).not.toHaveBeenCalled();
+  });
+});
+
+describe('useOpenBook — mini reader preference', () => {
+  it('opens any available book in the mini reader when enabled', async () => {
+    useSettingsStore.setState({
+      settings: { miniReader: { enabled: true } } as SystemSettings,
+    });
+    const { result } = setup();
+
+    await result.current.openBook(makeBook());
+    await flushNavigation();
+
+    expect(openMiniReader).toHaveBeenCalledWith(appService, 'h1', undefined);
+    expect(navigateToReader).not.toHaveBeenCalled();
+  });
+
+  it('uses the latest preference in both directions without an unrelated settings change', async () => {
+    const { result, rerender } = setup();
+    useSettingsStore.setState({
+      settings: { openBookInNewWindow: false, miniReader: { enabled: true } } as SystemSettings,
+    });
+    rerender();
+
+    await result.current.openBook(makeBook());
+    await flushNavigation();
+
+    expect(openMiniReader).toHaveBeenCalledWith(appService, 'h1', undefined);
+    expect(navigateToReader).not.toHaveBeenCalled();
+
+    useSettingsStore.setState({
+      settings: { openBookInNewWindow: false, miniReader: { enabled: false } } as SystemSettings,
+    });
+    rerender();
+    await result.current.openBook(makeBook());
+    await flushNavigation();
+
+    expect(openMiniReader).toHaveBeenCalledTimes(1);
+    expect(navigateToReader).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not replace the audiobook player with the mini reader', async () => {
+    useSettingsStore.setState({
+      settings: { miniReader: { enabled: true } } as SystemSettings,
+    });
+    const { result } = setup();
+
+    await result.current.openBook(makeBook({ format: 'ABS' }));
+
+    expect(routerPush).toHaveBeenCalledWith('/player?id=h1');
+    expect(openMiniReader).not.toHaveBeenCalled();
   });
 });
 

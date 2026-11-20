@@ -42,6 +42,7 @@ fn main() {
             "set_webview_info",
             "get_webview_version",
             "is_updater_disabled",
+            "configure_mini_reader_shortcuts",
             "allow_paths_in_scopes",
             "optimize_cover_thumbnails",
             "get_explorer_thumbnails_enabled",

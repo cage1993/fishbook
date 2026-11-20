@@ -16,7 +16,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { SystemSettings } from '@/types/settings';
 import { parseOpenWithFiles } from '@/helpers/openWith';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { UnlistenFn } from '@tauri-apps/api/event';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { tauriHandleClose, tauriHandleOnCloseWindow } from '@/utils/window';
 import { isTauriAppPlatform } from '@/services/environment';
 import { ttsSessionManager } from '@/services/tts/TTSSessionManager';
@@ -51,6 +51,8 @@ import SideBar from './sidebar/SideBar';
 import Notebook from './notebook/Notebook';
 import LocalSendManager from '@/components/localsend/LocalSendManager';
 import BooksGrid from './BooksGrid';
+import MiniReaderDragHandle from './MiniReaderDragHandle';
+import { normalizeMiniReaderSettings } from '@/services/miniReaderSettings';
 import SettingsDialog from '@/components/settings/SettingsDialog';
 import AudiobookPairingDialog from './audiobook/AudiobookPairingDialog';
 import HardcoverLinkDialog from './hardcover/HardcoverLinkDialog';
@@ -74,8 +76,10 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
   const _ = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const miniReader = searchParams?.get('mini') === '1';
+  const miniSettings = miniReader ? normalizeMiniReaderSettings(settings.miniReader) : null;
   const { envConfig, appService } = useEnv();
-  const { bookKeys, dismissBook, getNextBookKey } = useBooksManager();
+  const { bookKeys, dismissBook, getNextBookKey, openBookInReader } = useBooksManager();
   const { sideBarBookKey, setSideBarBookKey } = useSidebarStore();
   const { saveSettings } = useSettingsStore();
   const getConfig = useBookDataStore((s) => s.getConfig);
@@ -318,6 +322,26 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
     clearViewState(bookKey);
   };
 
+  useEffect(() => {
+    if (!miniReader) return;
+    const openBook = listen<{ bookId: string; cfi?: string }>(
+      'mini-reader-open-book',
+      async ({ payload }) => {
+        await Promise.all(bookKeys.map(saveBookConfig));
+        openBookInReader(payload.bookId, payload.cfi);
+      },
+    );
+    const turnPage = listen<string>('mini-reader-page-turn', ({ payload }) => {
+      const renderer = getView(bookKeys[0]!)?.renderer;
+      if (payload === 'previous') renderer?.prev();
+      if (payload === 'next') renderer?.next();
+    });
+    return () => {
+      void openBook.then((unlisten) => unlisten());
+      void turnPage.then((unlisten) => unlisten());
+    };
+  }, [miniReader, bookKeys, openBookInReader]);
+
   const navigateBackToLibrary = () => {
     // A reader window never mounted the library, so its launch-only restores
     // are still armed and would reopen the book just closed.
@@ -479,10 +503,18 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
   }
 
   return (
-    <div className='reader-content full-height flex'>
-      <SideBar />
+    <div className={`reader-content full-height flex${miniReader ? ' relative' : ''}`}>
+      {miniSettings && (
+        <MiniReaderDragHandle
+          textColor={miniSettings.textColor}
+          showControls={miniSettings.backgroundOpacity === 0}
+          resizable={miniSettings.resizable}
+        />
+      )}
+      {!miniReader && <SideBar />}
       <BooksGrid
         bookKeys={bookKeys}
+        miniReader={miniReader}
         onCloseBook={handleCloseBook}
         onGoToLibrary={handleCloseBooksToLibrary}
       />
@@ -506,7 +538,7 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
           onClose={() => setPageboundLinkBookKey(null)}
         />
       )}
-      <Notebook />
+      {!miniReader && <Notebook />}
       <LocalSendManager />
       {showDetailsBook && (
         <BookDetailModal

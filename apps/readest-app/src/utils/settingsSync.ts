@@ -17,10 +17,10 @@ import type { SystemSettings } from '@/types/settings';
  *
  * To keep windows consistent, the persisting window broadcasts its global
  * setting blobs and every other window adopts them, so a later save no longer
- * carries stale globals. Only `globalViewSettings` / `globalReadSettings` —
- * the truly-global objects edited in the Settings dialog — are synced; every
- * device/window-local field (filesystem paths, `lastOpenBooks`, sync cursors,
- * screen brightness, ...) is left untouched on the receiving window.
+ * carries stale globals. The global reading settings and this device's mini
+ * reader preferences are synced. Filesystem paths, `lastOpenBooks`, sync
+ * cursors, screen brightness and other device/window-local fields are left
+ * untouched on the receiving window.
  */
 export const SETTINGS_SYNC_EVENT = 'global-settings-window-sync';
 
@@ -57,6 +57,8 @@ export interface SettingsSyncPayload {
   sourceLabel: string;
   globalViewSettings: SystemSettings['globalViewSettings'];
   globalReadSettings: SystemSettings['globalReadSettings'];
+  /** Device-local mini reader preferences shared only between this app's windows. */
+  miniReader?: SystemSettings['miniReader'];
   /**
    * Present only on provider-switch broadcasts (see
    * `persistCloudProviderEnabled`), NOT on routine saves — so a stale
@@ -74,13 +76,18 @@ export const mergeSyncedGlobalSettings = (
   local: SystemSettings,
   payload: Pick<
     SettingsSyncPayload,
-    'globalViewSettings' | 'globalReadSettings' | 'cloudSyncProviders' | 'bookshelves'
+    | 'globalViewSettings'
+    | 'globalReadSettings'
+    | 'cloudSyncProviders'
+    | 'bookshelves'
+    | 'miniReader'
   >,
 ): SystemSettings => {
   const merged: SystemSettings = {
     ...local,
     globalViewSettings: payload.globalViewSettings,
     globalReadSettings: payload.globalReadSettings,
+    miniReader: payload.miniReader ?? local.miniReader,
   };
   if (payload.bookshelves)
     merged.bookshelves = mergeBookshelfStates(local.bookshelves, payload.bookshelves);
@@ -122,6 +129,7 @@ export const broadcastGlobalSettings = async (
       bookshelves: settings.bookshelves,
       globalViewSettings: settings.globalViewSettings,
       globalReadSettings: settings.globalReadSettings,
+      miniReader: settings.miniReader,
     };
     if (opts.includeCloudSyncProviders) {
       payload.cloudSyncProviders = {

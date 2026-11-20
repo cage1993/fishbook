@@ -3,7 +3,7 @@
 import clsx from 'clsx';
 import * as React from 'react';
 import { useEffect, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useEnv } from '@/context/EnvContext';
 import { useTheme } from '@/hooks/useTheme';
@@ -33,6 +33,9 @@ import { Toast } from '@/components/Toast';
 import { getLocale } from '@/utils/misc';
 import { initDayjs } from '@/utils/time';
 import ReaderContent from './ReaderContent';
+import { applyMiniReaderWindowSettings, watchMiniReaderBounds } from '@/services/desktopReader';
+import { normalizeMiniReaderSettings } from '@/services/miniReaderSettings';
+import { saveSysSettings } from '@/helpers/settings';
 
 /*
 Z-Index Layering Guide:
@@ -57,7 +60,8 @@ Z-Index Layering Guide:
 
 const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
   const router = useRouter();
-  const { appService } = useEnv();
+  const miniReader = useSearchParams()?.get('mini') === '1';
+  const { appService, envConfig } = useEnv();
   const { settings } = useSettingsStore();
   const { libraryLoaded } = useLibrary();
   const { sideBarBookKey } = useSidebarStore();
@@ -158,10 +162,37 @@ const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hoveredBookKey]);
 
+  useEffect(() => {
+    if (!miniReader) return;
+    const previousBackground = document.documentElement.style.background;
+    document.documentElement.style.background = 'transparent';
+    return () => {
+      document.documentElement.style.background = previousBackground;
+    };
+  }, [miniReader]);
+
+  useEffect(() => {
+    if (!miniReader || !appService?.hasWindow) return;
+    applyMiniReaderWindowSettings(normalizeMiniReaderSettings(settings.miniReader)).catch(
+      (error) => {
+        console.warn('Failed to apply mini reader window settings:', error);
+      },
+    );
+  }, [miniReader, appService?.hasWindow, settings.miniReader]);
+
+  useEffect(() => {
+    if (!miniReader || !appService?.hasWindow) return;
+    return watchMiniReaderBounds(
+      () => useSettingsStore.getState().settings.miniReader,
+      (next) => saveSysSettings(envConfig, 'miniReader', next),
+    );
+  }, [miniReader, appService?.hasWindow, envConfig]);
+
   return libraryLoaded && settings.globalReadSettings ? (
     <div
       className={clsx(
-        'reader-page bg-base-100 text-base-content full-height select-none overflow-hidden',
+        'reader-page text-base-content full-height select-none overflow-hidden',
+        miniReader ? 'bg-transparent' : 'bg-base-100',
         appService?.hasRoundedWindow && isRoundedWindow && 'window-border rounded-window',
       )}
     >

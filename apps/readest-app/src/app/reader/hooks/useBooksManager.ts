@@ -183,6 +183,7 @@ const useBooksManager = () => {
     appendBook,
     dismissBook,
     getNextBookKey,
+    openBookInReader,
     openParallelView,
   };
 };

@@ -16,7 +16,10 @@ const h = vi.hoisted(() => ({
   hoveredBookKey: '',
 }));
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ back: vi.fn() }) }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ back: vi.fn() }),
+  useSearchParams: () => ({ get: () => null }),
+}));
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ appService: { isMobileApp: true, isIOSApp: true, isAndroidApp: false } }),
 }));
