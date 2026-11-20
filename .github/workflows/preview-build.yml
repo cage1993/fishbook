@@ -151,7 +151,7 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=8192'
         run: |
           cd apps/readest-app
-          pnpm tauri build --target universal-apple-darwin --bundles app
+          pnpm tauri build --target universal-apple-darwin --bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}'
           ditto -c -k --keepParent target/universal-apple-darwin/release/bundle/macos/Readest.app "$GITHUB_WORKSPACE/fishbook-macos.zip"
 
       - name: upload macOS app
