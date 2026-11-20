@@ -1,0 +1,163 @@
+name: Build Preview Packages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/desktop-mini-reader
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-packages-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_SOURCE_CRATES_IO_REPLACE_WITH: rsproxy
+  CARGO_SOURCE_RSPROXY_REGISTRY: sparse+https://rsproxy.cn/index/
+  CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+
+jobs:
+  android-apk:
+    name: Android ARM64 debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: initialize git submodules
+        run: git submodule update --init --recursive
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: setup node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: setup Java
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: setup Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+        with:
+          packages: platform-tools
+
+      - name: install NDK
+        run: sdkmanager "ndk;28.2.13676358"
+
+      - name: install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline --registry=https://registry.npmmirror.com
+
+      - name: setup vendor assets
+        run: pnpm --filter @readest/readest-app setup-vendors
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          targets: aarch64-linux-android
+
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # v2
+        with:
+          key: android-arm64-preview-cargo
+          workspaces: apps/readest-app/src-tauri
+
+      - name: create app configuration
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          echo "NEXT_PUBLIC_APP_PLATFORM=tauri" >> .env.local
+          if [ -n "$SUPABASE_URL" ]; then echo "NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL" >> .env.local; fi
+          if [ -n "$SUPABASE_ANON_KEY" ]; then echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env.local; fi
+          cp .env.local apps/readest-app/.env.local
+
+      - name: build debug APK
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/28.2.13676358
+        run: |
+          cd apps/readest-app
+          rm -rf src-tauri/gen/android
+          pnpm tauri android init
+          pnpm tauri icon ../../data/icons/readest-book.png
+          git checkout .
+          pnpm tauri android build --debug --target aarch64
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*-debug.apk' | head -n 1)
+          test -n "$APK"
+          cp "$APK" "$GITHUB_WORKSPACE/fishbook-preview-arm64.apk"
+
+      - name: upload APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fishbook-android-arm64-debug
+          path: fishbook-preview-arm64.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  macos-app:
+    name: macOS universal app
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: initialize git submodules
+        run: git submodule update --init --recursive
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: setup node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline --registry=https://registry.npmmirror.com
+
+      - name: setup vendor assets
+        run: pnpm --filter @readest/readest-app setup-vendors
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # v2
+        with:
+          key: macos-universal-preview-cargo
+          workspaces: apps/readest-app/src-tauri
+
+      - name: create app configuration
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          echo "NEXT_PUBLIC_APP_PLATFORM=tauri" >> .env.local
+          if [ -n "$SUPABASE_URL" ]; then echo "NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL" >> .env.local; fi
+          if [ -n "$SUPABASE_ANON_KEY" ]; then echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env.local; fi
+          cp .env.local apps/readest-app/.env.local
+
+      - name: build and package macOS app
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+          NODE_OPTIONS: '--max-old-space-size=8192'
+        run: |
+          cd apps/readest-app
+          pnpm tauri build --target universal-apple-darwin --bundles app
+          ditto -c -k --keepParent target/universal-apple-darwin/release/bundle/macos/Readest.app "$GITHUB_WORKSPACE/fishbook-macos.zip"
+
+      - name: upload macOS app
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fishbook-macos-universal
+          path: fishbook-macos.zip
+          if-no-files-found: error
+          retention-days: 14
