@@ -153,7 +153,7 @@ jobs:
         run: |
           cd apps/readest-app
           pnpm tauri build --target x86_64-pc-windows-msvc --bundles nsis --config '{"bundle":{"createUpdaterArtifacts":false}}'
-          INSTALLER=$(find target/x86_64-pc-windows-msvc/release/bundle/nsis -name '*.exe' | head -n 1)
+          INSTALLER=$(find "$GITHUB_WORKSPACE/target/x86_64-pc-windows-msvc/release/bundle/nsis" -name '*.exe' | head -n 1)
           test -n "$INSTALLER"
           cp "$INSTALLER" "$GITHUB_WORKSPACE/fishbook-windows-x64-setup.exe"
 
@@ -217,7 +217,7 @@ jobs:
         run: |
           cd apps/readest-app
           pnpm tauri build --target universal-apple-darwin --bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}'
-          ditto -c -k --keepParent target/universal-apple-darwin/release/bundle/macos/Readest.app "$GITHUB_WORKSPACE/fishbook-macos.zip"
+          ditto -c -k --keepParent "$GITHUB_WORKSPACE/target/universal-apple-darwin/release/bundle/macos/Readest.app" "$GITHUB_WORKSPACE/fishbook-macos.zip"
 
       - name: upload macOS app
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
