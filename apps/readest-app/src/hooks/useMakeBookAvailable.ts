@@ -35,7 +35,7 @@ export const useMakeBookAvailable = ({
   handleBookDownload,
 }: UseMakeBookAvailableOptions) => {
   const { envConfig, appService } = useEnv();
-  const updateBook = useLibraryStore((state) => state.updateBook);
+  const updateBooks = useLibraryStore((state) => state.updateBooks);
 
   return useCallback(
     async (book: Book) => {
@@ -52,10 +52,14 @@ export const useMakeBookAvailable = ({
       // be moved or deleted behind our back. Probe, and re-fetch from the cloud
       // when it's really gone, instead of opening a reader that cannot load.
       if (await appService?.isBookAvailable(book)) {
-        if (!book.downloadedAt || !book.coverDownloadedAt) {
+        if (
+          !book.downloadedAt ||
+          !book.coverDownloadedAt ||
+          !useLibraryStore.getState().getBookByHash(book.hash)
+        ) {
           book.downloadedAt = Date.now();
           book.coverDownloadedAt = Date.now();
-          await updateBook(envConfig, book);
+          await updateBooks(envConfig, [book]);
         }
         return true;
       }
@@ -63,7 +67,7 @@ export const useMakeBookAvailable = ({
       const loadingTimeout = setTimeout(() => setLoading(true), 200);
       try {
         available = await handleBookDownload(book, { queued: false });
-        await updateBook(envConfig, book);
+        await updateBooks(envConfig, [book]);
       } finally {
         if (loadingTimeout) clearTimeout(loadingTimeout);
         setLoading(false);

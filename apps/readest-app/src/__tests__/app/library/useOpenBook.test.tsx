@@ -7,6 +7,7 @@ import type { AppService } from '@/types/system';
 import type { EnvConfigType } from '@/services/environment';
 import type { SystemSettings } from '@/types/settings';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useLibraryStore } from '@/store/libraryStore';
 
 /**
  * Issue #5265 (the residue of #5084): "Delete locally" must never cost the user
@@ -98,6 +99,7 @@ beforeEach(() => {
   isBookAvailable.mockResolvedValue(false);
   deleteIntents = [];
   appService.hasWindow = true;
+  useLibraryStore.getState().setLibrary([]);
   useSettingsStore.setState({
     settings: { openBookInNewWindow: false, miniReader: { enabled: false } } as SystemSettings,
   });
@@ -182,6 +184,40 @@ describe('useOpenBook — mini reader preference', () => {
 
     expect(openMiniReader).toHaveBeenCalledTimes(1);
     expect(navigateToReader).toHaveBeenCalledTimes(1);
+  });
+
+  it('persists a newly synced book before opening it in a new mini window', async () => {
+    useSettingsStore.setState({
+      settings: { miniReader: { enabled: true } } as SystemSettings,
+    });
+    const { result } = setup();
+    const book = makeBook({ hash: 'new-synced-book', uploadedAt: 1000, downloadedAt: null });
+
+    await result.current.openBook(book);
+
+    expect(useLibraryStore.getState().getBookByHash(book.hash)).toBeDefined();
+    expect(appService.saveLibraryBooks).toHaveBeenCalledWith([book]);
+    expect(openMiniReader).toHaveBeenCalledWith(appService, book.hash, undefined);
+  });
+
+  it('persists an already downloaded book whose library entry was dropped', async () => {
+    isBookAvailable.mockResolvedValue(true);
+    useSettingsStore.setState({
+      settings: { miniReader: { enabled: true } } as SystemSettings,
+    });
+    const { result } = setup();
+    const book = makeBook({
+      hash: 'already-downloaded-book',
+      uploadedAt: 1000,
+      downloadedAt: 1000,
+      coverDownloadedAt: 1000,
+    });
+
+    await result.current.openBook(book);
+
+    expect(useLibraryStore.getState().getBookByHash(book.hash)).toBeDefined();
+    expect(appService.saveLibraryBooks).toHaveBeenCalledWith([book]);
+    expect(openMiniReader).toHaveBeenCalledWith(appService, book.hash, undefined);
   });
 
   it('does not replace the audiobook player with the mini reader', async () => {
